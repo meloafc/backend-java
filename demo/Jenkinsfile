@@ -1,0 +1,51 @@
+pipeline {
+    environment {
+        dockerImage = ''
+    }
+    agent {
+        docker {
+            image 'maven:3-alpine'
+            args '-v /root/.m2:/root/.m2'
+        }
+    }
+    options {
+        // Only keep the 10 most recent builds
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    parameters {
+        string(name: 'REGISTRY', defaultValue: params.REGISTRY ?: 'meloafc/demo', description: 'Registry')
+        string(name: 'REGISTRY_CREDENTIALS_ID', defaultValue: params.REGISTRY_CREDENTIALS_ID ?: 'dockerhub', description: 'Registry credentials id')
+    }
+    stages {
+        stage('Cloning Git') {
+            steps {
+                git 'https://github.com/meloafc/backend-java.git'
+            }
+        }
+        stage('Build Java') {
+            steps {
+                sh 'ls'
+                sh 'cd demo'
+                sh 'ls'
+                sh 'mvn clean install'
+            }
+        }
+        stage('Build Image') {
+            steps {
+                sh 'ls'
+                script {
+                    dockerImage = docker.build REGISTRY
+                }
+            }
+        }
+        stage('Deploy Image') {
+            steps {
+                script {
+                    docker.withRegistry('', REGISTRY_CREDENTIALS_ID) {
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+    }
+}
