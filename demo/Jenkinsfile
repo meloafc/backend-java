@@ -2,16 +2,11 @@ pipeline {
     environment {
         dockerImage = ''
     }
-    agent {
-        docker {
-            image 'maven:3-alpine'
-            args '-v /root/.m2:/root/.m2'
-        }
-    }
     parameters {
         string(name: 'REGISTRY', defaultValue: params.REGISTRY ?: 'meloafc/demo', description: 'Registry')
         string(name: 'REGISTRY_CREDENTIALS_ID', defaultValue: params.REGISTRY_CREDENTIALS_ID ?: 'dockerhub', description: 'Registry credentials id')
     }
+    agent any
     stages {
         stage('Cloning Git') {
             steps {
@@ -19,14 +14,22 @@ pipeline {
             }
         }
         stage('Build Java') {
+            agent {
+                docker {
+                    image 'maven:3-alpine'
+                    args '-v /root/.m2:/root/.m2 -v ${WORKSPACE}:/app'
+                    reuseNode true
+                }
+            }
             steps {
-                sh 'pwd'
+                sh 'ls'
                 sh 'cd demo && mvn clean install'
             }
         }
         stage('Build Image') {
             steps {
                 sh 'pwd'
+                sh 'docker ps -a'
                 script {
                     dockerImage = docker.build(REGISTRY, "./demo")
                 }
